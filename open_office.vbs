@@ -259,4 +259,5 @@ Sub SetAppFocus(objApp)
 	Set objShell = WScript.CreateObject("WScript.Shell")
 	objApp.Visible = True
 	Call objShell.AppActivate(objApp.Caption)
+	objShell.SendKeys "% r"
 End Sub
