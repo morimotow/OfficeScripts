@@ -39,6 +39,9 @@ Function GetArgs()
 	' ファイルパスをフルパスに変換
 	m_filePath = oFs.GetAbsolutePathName(m_filePath)
 
+	' ショートカットファイルを実ファイルパスに変換
+	m_filePath = ResolveShortcut(m_filePath)
+
 	' 読み取り専用指定(0:通常、1:読み取り専用)
 	m_readOnly = oArgs(1)
 	If m_readOnly = "0" Then
@@ -106,6 +109,34 @@ Function Main(filePath, readOnly, newProcess)
 		Call MsgBox("拡張子「" & ext & "」は処理対象外です",, "エラー")
 		Main = False
 	End If
+
+End Function
+
+' ショートカットファイルで指定されている実ファイルパスを返す
+Function ResolveShortcut(filePath)
+
+	' 拡張子判定
+	Dim ext
+	Dim objFs
+	Set objFs = WScript.CreateObject("Scripting.FileSystemObject")
+	ext = LCase(objFs.GetExtensionName(filePath))
+
+	' ショートカットファイルでない場合は何もしません
+	If ext <> "lnk" Then
+		ResolveShortcut = filePath
+		Exit Function
+	End If
+
+	' ショートカットファイルを読み込みます
+	Dim objShell
+	Set objShell = WScript.CreateObject("WScript.Shell")
+	Dim objLnk
+	Set objLnk = objShell.CreateShortcut(filePath)
+
+	' パスを取得します
+	Dim result
+	result = objLnk.TargetPath
+	ResolveShortcut = result
 
 End Function
 
