@@ -142,6 +142,13 @@ End Function
 
 Function ExcelOpen(filePath, readOnly, newProcess)
 
+	' 既存プロセスが指定されていて、起動しているExcelがない場合はシェル機能でファイルを開きます。
+	If (Not newProcess) And (Not ExistsApp("Excel.Application")) Then
+		Call ShellOpen(filePath)
+		ExcelOpen = True
+		Exit Function
+	End If
+
 	' 新しいプロセスが指定されている場合はCreateObject
 	Dim objApp
 	Set objApp = GetOfficeApp("Excel.Application", newProcess)
@@ -293,9 +300,35 @@ Sub SetAppFocus(objApp)
 	objApp.Visible = True
 	Call objShell.AppActivate(objApp.Caption)
 
-	' ウィンドウが最小化されている時だけ、0.1秒後に復元
+	' ウィンドウが最小化されている時だけ、0.2秒後に復元
 	If objApp.WindowState = -4140 Then
-		WScript.Sleep 100
+		WScript.Sleep 200
 		objShell.SendKeys "% r"
 	End If
+End Sub
+
+' 指定されたOfficeアプリケーションが起動済みかチェック
+Function ExistsApp(progId)
+	On Error Resume Next
+	Dim objApp
+	Set objApp = GetObject(, progId)
+	If Err.Number Then
+		ExistsApp = False
+	Else
+		Call objApp.Quit()
+		Set objApp = False
+		ExistsApp = True
+	End If
+	On Error GoTo 0
+End Function
+
+' 指定されたファイルをシェル機能で開く
+Sub ShellOpen(filePath)
+	Dim objShell
+	Set objShell = WScript.CreateObject("WScript.Shell")
+
+	Call objShell.Run(filePath)
+
+	' ファイルが開いてこないことがあったので0.2秒待機を追加
+	WScript.Sleep 200
 End Sub
