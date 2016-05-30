@@ -144,7 +144,7 @@ Function ExcelOpen(filePath, readOnly, newProcess)
 
 	' 既存プロセスが指定されていて、起動しているExcelがない場合はシェル機能でファイルを開きます。
 	If (Not newProcess) And (Not ExistsApp("Excel.Application")) Then
-		Call ShellOpen(filePath)
+		Call ExcelShellOpen(filePath, readOnly)
 		ExcelOpen = True
 		Exit Function
 	End If
@@ -322,12 +322,28 @@ Function ExistsApp(progId)
 	On Error GoTo 0
 End Function
 
-' 指定されたファイルをシェル機能で開く
-Sub ShellOpen(filePath)
+' 指定されたファイルをExcelで開く(シェル実行)
+Sub ExcelShellOpen(filePath, readOnly)
+
+	' Excel.Applicationから、実行ファイルパスを取得
+	Dim objApp
+	Set objApp = CreateObject("Excel.Application")
+	Dim path
+	path = objApp.Path
+	Call objApp.Quit()
+	Set objApp = Nothing
+
+	' 読み取り専用が指定されている場合は引数をセットする
+	Dim cmd
+	If readOnly Then
+		cmd = """" & path & "\EXCEL.EXE"" /r " & """" & filePath & """"
+	Else
+		cmd = """" & path & "\EXCEL.EXE"" " & """" & filePath & """"
+	End If
+
 	Dim objShell
 	Set objShell = WScript.CreateObject("WScript.Shell")
-
-	Call objShell.Run(filePath)
+	Call objShell.Run(cmd)
 
 	' ファイルが開いてこないことがあったので0.2秒待機を追加
 	WScript.Sleep 200
