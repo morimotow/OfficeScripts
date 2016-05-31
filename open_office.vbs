@@ -315,8 +315,7 @@ Function ExistsApp(progId)
 	If Err.Number Then
 		ExistsApp = False
 	Else
-		Call objApp.Quit()
-		Set objApp = False
+		Set objApp = Nothing
 		ExistsApp = True
 	End If
 	On Error GoTo 0
