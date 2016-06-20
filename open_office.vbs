@@ -332,18 +332,29 @@ Sub ExcelShellOpen(filePath, readOnly)
 	Call objApp.Quit()
 	Set objApp = Nothing
 
-	' 読み取り専用が指定されている場合は引数をセットする
+	' 空のExcelアプリケーションをシェル機能を利用して起動
 	Dim cmd
-	If readOnly Then
-		cmd = """" & path & "\EXCEL.EXE"" /r " & """" & filePath & """"
-	Else
-		cmd = """" & path & "\EXCEL.EXE"" " & """" & filePath & """"
-	End If
-
+	cmd = """" & path & "\EXCEL.EXE"""
 	Dim objShell
 	Set objShell = WScript.CreateObject("WScript.Shell")
 	Call objShell.Run(cmd)
 
-	' ファイルが開いてこないことがあったので0.2秒待機を追加
-	WScript.Sleep 200
+	' アドイン読み込み完了待機
+	WScript.Sleep 2000
+
+	' 起動済みのExcelオブジェクトを取得し、ファイルを開く
+	Dim objApp2
+	Set objApp2 = GetObject(, "Excel.Application")
+
+	On Error Resume Next
+	If readOnly Then
+		Call objApp2.WorkBooks.Open(filePath, , True)
+	Else
+		Call objApp2.WorkBooks.Open(filePath)
+	End If
+	If Err.Number Then
+		MsgBox "エラーが発生しました" & vbCrLf & vbCrLf & Err.Description, , "エラー"
+	End If
+
+	On Error GoTo 0
 End Sub
