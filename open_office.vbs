@@ -339,12 +339,10 @@ Sub ExcelShellOpen(filePath, readOnly)
 	Set objShell = WScript.CreateObject("WScript.Shell")
 	Call objShell.Run(cmd)
 
-	' アドイン読み込み完了待機
-	WScript.Sleep 2000
-
 	' 起動済みのExcelオブジェクトを取得し、ファイルを開く
+	' アドイン起動までしばらく時間がかかることがあるので待機処理追加
 	Dim objApp2
-	Set objApp2 = GetObject(, "Excel.Application")
+	Set objApp2 = WaitGetObject("Excel.Application")
 
 	On Error Resume Next
 	If readOnly Then
@@ -358,3 +356,38 @@ Sub ExcelShellOpen(filePath, readOnly)
 
 	On Error GoTo 0
 End Sub
+
+' GetObjectで指定されたアプリケーションが取得できるまで待機
+Function WaitGetObject(progId)
+
+	On Error Resume Next
+
+	Dim objApp
+	Dim i
+	For i = 0 To 9
+
+		' ２秒待機
+		WScript.Sleep 2000
+
+		' 2秒で起動した場合はそのままアプリケーション参照を返す
+		Set objApp = GetObject(, progId)
+		If Err.Number = 0 Then
+			Set WaitGetObject = objApp
+			Exit Function
+		End If
+
+		' 起動していない場合(エラー429)以外はエラー表示
+		If Err.Number <> 429 Then
+			MsgBox Err.Number & ":" & Err.Description
+			Set WaitGetObject = Nothing
+			Exit Function
+		End If
+
+		' メッセージ表示して待機(起動確認したらOKボタン)
+		Err.Clear
+		MsgBox"アプリケーションが起動したことを確認してからOKボタンを押してください", , "アプリケーション起動待機"
+	Next
+
+	Set WaitGetObject = Nothing
+
+End Function
