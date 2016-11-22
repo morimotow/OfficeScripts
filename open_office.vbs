@@ -243,7 +243,7 @@ Function WordOpen(filePath, readOnly)
 
 End Function
 
-Function PowerPointOpen(filePath, readOnly, newProcess)
+Function PowerPointOpen(filePath, readOnly)
 
 	' PowerPointは必ず既存のアプリケーションで開くようにします
 	Dim objApp
@@ -343,6 +343,9 @@ Sub ExcelShellOpen(filePath, readOnly)
 	' アドイン起動までしばらく時間がかかることがあるので待機処理追加
 	Dim objApp2
 	Set objApp2 = WaitGetObject("Excel.Application")
+	If objApp2 Is Nothing Then
+		Exit Sub
+	End If
 
 	On Error Resume Next
 	If readOnly Then
@@ -383,11 +386,17 @@ Function WaitGetObject(progId)
 			Exit Function
 		End If
 
-		' メッセージ表示して待機(起動確認したらOKボタン)
 		Err.Clear
-		MsgBox"アプリケーションが起動したことを確認してからOKボタンを押してください", , "アプリケーション起動待機"
+
 	Next
 
-	Set WaitGetObject = Nothing
+	' 20秒経過後、さらに待機するか問い合わせる
+	Dim wait_continue
+	wait_continue = MsgBox("アプリケーションが起動しないようです。継続して待機しますか？", vbYesNo + vbSystemModal, "アプリケーション起動待機")
+	If wait_continue = vbYes Then
+		Set WaitGetObject = WaitGetObject(progId)
+	Else
+		Set WaitGetObject = Nothing
+	End If
 
 End Function
