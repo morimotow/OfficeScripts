@@ -348,11 +348,7 @@ Sub ExcelShellOpen(filePath, readOnly)
 	End If
 
 	On Error Resume Next
-	If readOnly Then
-		Call objApp2.WorkBooks.Open(filePath, , True)
-	Else
-		Call objApp2.WorkBooks.Open(filePath)
-	End If
+	Call objApp2.WorkBooks.Open(filePath, ,readOnly)
 	If Err.Number Then
 		MsgBox "エラーが発生しました" & vbCrLf & vbCrLf & Err.Description, , "エラー"
 	End If
