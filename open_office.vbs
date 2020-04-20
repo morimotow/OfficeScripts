@@ -20,15 +20,15 @@ Function GetArgs()
 	Dim oArgs
 	Set oArgs = WScript.Arguments
 
-	' 引数2つ以上でない場合エラー
-	If oArgs.Count < 2 Then
+	' 引数3つでない場合エラー
+	If oArgs.Count <> 3 Then
 		Call DisplayUsage()
 		GetArgs = False
 		Exit Function
 	End If
 
 	' ファイルパス(パスがない場合エラー)
-	m_filePath = oArgs(0)
+	m_filePath = oArgs(2)
 	Dim oFs
 	Set oFs = CreateObject("Scripting.FileSystemObject")
 	If Not oFs.FileExists(m_filePath) Then
@@ -43,7 +43,7 @@ Function GetArgs()
 	m_filePath = ResolveShortcut(m_filePath)
 
 	' 読み取り専用指定(0:通常、1:読み取り専用)
-	m_readOnly = oArgs(1)
+	m_readOnly = oArgs(0)
 	If m_readOnly = "0" Then
 		m_readOnly = False
 	ElseIf m_readOnly = "1" Then
@@ -55,12 +55,7 @@ Function GetArgs()
 	End If
 
 	' 別プロセス指定(0:既存のプロセスあれば使用、1:新規作成)
-	If oArgs.Count = 2 Then
-		m_newProcess = "0"
-	Else
-		m_newProcess = "0"
-		m_newProcess = oArgs(2)
-	End If
+	m_newProcess = oArgs(1)
 	If m_newProcess = "0" Then
 		m_newProcess = CBool(False)
 	ElseIf m_newProcess = "1" Then
@@ -79,7 +74,7 @@ Sub DisplayUsage()
 	Dim msg
 	msg = "Officeファイル操作補助スクリプト" & vbCrLf
 	msg = msg & "使い方：" & vbCrLf
-	msg = msg & "WScript.exe open_office.vbs <ファイルパス> <0:通常|1:読取専用> [<0:既存プロセス使用|1:新プロセス作成>]" & vbCrLf
+	msg = msg & "WScript.exe open_office.vbs <0:通常|1:読取専用> [<0:既存プロセス使用|1:新プロセス作成>] <ファイルパス>" & vbCrLf
 	MsgBox msg, , "Officeファイル操作補助スクリプト"
 End Sub
 
