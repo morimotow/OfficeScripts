@@ -175,7 +175,7 @@ Function ExcelOpen(filePath, readOnly, newProcess)
 	' ファイルを開く
 	On Error Resume Next
 	If readOnly Then
-		Call objApp.WorkBooks.Open(filePath, , True)
+		Call objApp.WorkBooks.Add(filePath)
 	Else
 		Call objApp.WorkBooks.Open(filePath)
 	End If
@@ -343,7 +343,7 @@ Sub ExcelShellOpen(filePath, readOnly)
 	End If
 
 	On Error Resume Next
-	Call objApp2.WorkBooks.Open(filePath, ,readOnly)
+	Call objApp2.WorkBooks.Add(filePath)
 	If Err.Number Then
 		MsgBox "エラーが発生しました" & vbCrLf & vbCrLf & Err.Description, , "エラー"
 	End If
