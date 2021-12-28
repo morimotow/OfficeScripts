@@ -1,5 +1,12 @@
 Option Explicit
 
+' バックアップフォルダとみなすフォルダ名
+Dim m_bkName
+m_bkName = "bk,@bk,old,@old,bak,@bak,backup,@backup"
+Dim m_arrBkName
+m_arrBkName = Split(m_bkName, ",")
+
+
 Dim m_objFso
 Set m_objFso = CreateObject("Scripting.FileSystemObject")
 
@@ -77,17 +84,17 @@ Function ExecBackup(orgPath)
 	Dim orgExt
 	orgExt = m_objFso.GetExtensionName(orgPath)
 
-	' bkフォルダの存在を確認(なければバックアップせずに終了)
-	Dim strBkDir
-	strBkDir = m_objFso.BuildPath(orgDir, "bk")
-	If Not m_objFso.FolderExists(strBkDir) Then
+	' バックアップ用フォルダの存在を確認(なければバックアップせずに終了)
+	Dim bkDir
+	bkDir = FindBackupDir(orgDir)
+	If Len(bkDir) = 0 Then
 		ExecBackup = False
 		Exit Function
 	End If
 
 	' バックアップファイル名を作成
 	Dim bkPath
-	bkPath = CreateBackupPath(orgDir, orgBase, orgExt)
+	bkPath = CreateBackupPath(bkDir, orgBase, orgExt)
 
 	' バックアップファイル名がない場合は終了
 	If Len(bkPath) <= 0 Then
@@ -97,13 +104,33 @@ Function ExecBackup(orgPath)
 
 	' ファイルコピー実行
 	m_objFso.CopyFile orgPath, bkPath
-	Call MsgBox("バックアップファイル名：" & m_objFso.GetFileName(bkPath), , "コピー完了")
+	Call MsgBox("バックアップファイル名：" & m_objFso.GetFileName(bkDir) & "\" & m_objFso.GetFileName(bkPath), , "コピー完了")
 	ExecBackup = True
 
 End Function
 
+' バックアップ用のフォルダとみなされるフォルダを検索
+Function FindBackupDir(orgDir)
+
+	' あらかじめ決められたバックアップフォルダ名のフォルダがあるかチェックする
+	Dim strBkDir
+	Dim bkName
+	For Each bkName In m_arrBkName
+		strBkDir = m_objFso.BuildPath(orgDir, bkName)
+		If m_objFso.FolderExists(strBkDir) Then
+			Dim resultPath
+			resultPath = m_objFso.GetAbsolutePathName(strBkDir)
+			FindBackupDir = resultPath
+			Exit Function
+		End If
+	Next
+
+	FindBackupDir = ""
+
+End Function
+
 ' バックアップファイルのパスを生成します
-Function CreateBackupPath(orgDir, orgBase, orgExt)
+Function CreateBackupPath(bkDir, orgBase, orgExt)
 
 	Dim result
 
@@ -113,9 +140,9 @@ Function CreateBackupPath(orgDir, orgBase, orgExt)
 
 	' バックアップがまだない場合は連番なしのファイルパスを返す
 	Dim bkNum
-	bkNum = ExistsBackupPath(orgDir, orgBase, orgExt, nowDate)
+	bkNum = ExistsBackupPath(bkDir, orgBase, orgExt, nowDate)
 	If bkNum < 0 Then
-		result = CreateNewBackupPath(orgDir, orgBase, orgExt, nowDate, 0)
+		result = CreateNewBackupPath(bkDir, orgBase, orgExt, nowDate, 0)
 		CreateBackupPath = result
 		Exit Function
 	End If
@@ -148,12 +175,12 @@ Function CreateBackupPath(orgDir, orgBase, orgExt)
 
 	' そのまま上書きの場合は見つかったバックアップファイルパスをそのまま返す
 	If msgResult = vbNo Then
-		result = CreateNewBackupPath(orgDir, orgBase, orgExt, nowDate, bkNum)
+		result = CreateNewBackupPath(bkDir, orgBase, orgExt, nowDate, bkNum)
 	End If
 
 	' 連番作成の場合は連番を１増分したバックアップファイルパスを返す
 	If msgResult = vbYes Then
-		result = CreateNewBackupPath(orgDir, orgBase, orgExt, nowDate, bkNum + 1)
+		result = CreateNewBackupPath(bkDir, orgBase, orgExt, nowDate, bkNum + 1)
 	End If
 
 	CreateBackupPath = result
@@ -164,7 +191,7 @@ End Function
 ' -1 - バックアップファイルなし
 ' 0 - バックアップファイル(連番なし)あり
 ' 1 ～ 9 - バックアップファイル(連番つき)あり
-Function ExistsBackupPath(orgDir, orgBase, orgExt, nowDate)
+Function ExistsBackupPath(bkDir, orgBase, orgExt, nowDate)
 
 	' 連番なし～連番9まで、バックアップファイルがあるかチェックします
 	Dim bkNum
@@ -172,7 +199,7 @@ Function ExistsBackupPath(orgDir, orgBase, orgExt, nowDate)
 	Dim i
 	Dim chkPath
 	For i = 0 To 9
-		chkPath = CreateNewBackupPath(orgDir, orgBase, orgExt, nowDate, i)
+		chkPath = CreateNewBackupPath(bkDir, orgBase, orgExt, nowDate, i)
 		If m_objFso.FileExists(chkPath) Then
 			bkNum = i
 		End If
@@ -184,13 +211,13 @@ Function ExistsBackupPath(orgDir, orgBase, orgExt, nowDate)
 End Function
 
 ' 連番つきバックアップファイル名の作成(<元のファイル>_<yyyymmdd>_<連番>.<元の拡張子>)
-Function CreateNewBackupPath(orgDir, orgBase, orgExt, nowDate, bkNum)
+Function CreateNewBackupPath(bkDir, orgBase, orgExt, nowDate, bkNum)
 
 	Dim newFileName
 	newFileName = CreateNewBackupPathBase(orgBase, orgExt, nowDate, bkNum)
 
 	Dim result
-	result = m_objFso.BuildPath(orgDir & "\bk", newFileName)
+	result = m_objFso.BuildPath(bkDir, newFileName)
 	CreateNewBackupPath = result
 
 End Function
