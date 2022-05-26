@@ -1,11 +1,17 @@
 Option Explicit
 
+Dim m_appPath
 Dim m_filePath
 Dim m_readOnly
 Dim m_newProcess
 
 ' 引数取得
 If Not GetArgs() Then
+	WScript.Quit -1
+End If
+
+' Officeインストールパス取得
+If Not GetAppPath() Then
 	WScript.Quit -1
 End If
 
@@ -78,6 +84,30 @@ Sub DisplayUsage()
 	MsgBox msg, , "Officeファイル操作補助スクリプト"
 End Sub
 
+' Officeインストールパス取得
+Function GetAppPath()
+
+	' Excelが起動済みの場合はExcelの起動パスを返す
+	On Error Resume Next
+	Dim objApp
+	Set objApp = Nothing
+	Set objApp = GetObject(, "Excel.Application")
+	On Error GoTo 0
+	If Not (objApp Is Nothing) Then
+		m_appPath = objApp.Path & "\"
+		GetAppPath = True
+		Exit Function
+	End If
+
+	' 起動していないばあいはExcelを起動して起動パス取得後終了させる
+	Set objApp = CreateObject("Excel.Application")
+	m_appPath = objApp.Path & "\"
+	objApp.Quit
+	Set objApp = Nothing
+	GetAppPath = True
+
+End Function
+
 ' 読み取り専用
 ' 読み取り専用(別ウィンドウ)
 ' 編集
@@ -137,26 +167,16 @@ End Function
 
 Function ExcelOpen(filePath, readOnly, newProcess)
 
-	' 既存プロセスが指定されていて、起動しているExcelがない場合はシェル機能でファイルを開きます。
-	If (Not newProcess) And (Not ExistsApp("Excel.Application")) Then
-		Call ExcelShellOpen(filePath, readOnly)
-		ExcelOpen = True
-		Exit Function
-	End If
-
-	' 新しいプロセスが指定されている場合はCreateObject
-	Dim objApp
-	Set objApp = GetOfficeApp("Excel.Application", newProcess)
-
-	' 同名ファイルが開いているかチェック
+	' 新プロセス指定以外で、同名ファイルが開いているかチェック
 	Dim answer
 	answer = vbNo
-	If IsSameBookOpen(filePath, objApp) Then
-		Dim fileName
-		Dim objFs
-		Set objFs = WScript.CreateObject("Scripting.FileSystemObject")
-		fileName = objFs.GetFileName(filePath)
-		answer = MsgBox("ファイル「" & fileName & "」は既に開いています。別のウインドウで開きますか？", vbOkCancel, "ファイルの重複")
+	Dim sameBook
+	Set sameBook = Nothing
+	If (Not newProcess) Then
+		Set sameBook = GetSameBookOpen(filePath)
+		If Not (sameBook Is Nothing) Then
+			answer = MsgBox("ファイル「" & sameBook.Name & "」は既に開いています。別のウインドウで開きますか？", vbOkCancel, "ファイルの重複")
+		End If
 	End If
 
 	' 同名ファイルチェックでキャンセルしたときは終了
@@ -164,21 +184,34 @@ Function ExcelOpen(filePath, readOnly, newProcess)
 		ExcelOpen = False
 		Exit Function
 	End If
-	' 同名ファイルチェックで別プロセス指定したときは別Excelで開き直す
-	If answer = vbOk Then
-		Set objApp = GetOfficeApp("Excel.Application", True)
+	' 同名ファイルが開かれている場合は引数を書き換え
+	If Not (sameBook Is Nothing) Then
+		newProcess = True
+		' 同名ファイルが読み取り専用でない場合は引数を書き換え
+		If Not sameBook.ReadOnly Then
+			readOnly = True
+		End If
 	End If
 
-	' アプリケーションを前面に表示
-	Call SetAppFocus(objApp)
+	Dim cmd
+	cmd = """" & m_appPath & "EXCEL.exe"""
 
-	' ファイルを開く
-	On Error Resume Next
+	' 新プロセス指定の場合は引数追加
+	If newProcess Then
+		cmd = cmd & " /x"
+	End If
+
+	' 読み取り専用の場合は引数追加
 	If readOnly Then
-		Call objApp.WorkBooks.Add(filePath)
-	Else
-		Call objApp.WorkBooks.Open(filePath)
+		cmd = cmd & " /r"
 	End If
+
+	' 指定されたファイルを渡す
+	cmd = cmd & " """ & filePath & """"
+
+	Dim objShell
+	Set objShell = WScript.CreateObject("WScript.Shell")
+	Call objShell.Run(cmd)
 
 	If Err.Number Then
 		MsgBox "エラーが発生しました" & vbCrLf & vbCrLf & Err.Description, , "エラー"
@@ -191,22 +224,36 @@ Function ExcelOpen(filePath, readOnly, newProcess)
 
 End Function
 
-' 同名のファイルが開いているかチェック
-Function IsSameBookOpen(filePath, objApp)
+' 指定したファイルと同名のファイルから開いたブックを返す
+Function GetSameBookOpen(filePath)
 
+	' Excelが一つもない場合はファイルを開いていない
+	On Error Resume Next
+	Dim objApp
+	Set objApp = Nothing
+	Set objApp = GetObject(, "Excel.Application")
+	On Error GoTo 0
+	If objApp Is Nothing Then
+		Set GetSameBookOpen = Nothing
+		Exit Function
+	End If
+
+	' ファイル名のみ取得
 	Dim fileName
 	Dim objFs
 	Set objFs = WScript.CreateObject("Scripting.FileSystemObject")
 	fileName = objFs.GetFileName(filePath)
 
+	' ファイル名と同名のワークブックを返す
 	On Error Resume Next
 	Dim objBook
+	Set objBook = Nothing
 	Set objBook = objApp.WorkBooks(fileName)
 	On Error GoTo 0
-	If Not IsEmpty(objBook) Then
-		IsSameBookOpen = True
+	If (objBook Is Nothing) Then
+		Set GetSameBookOpen = Nothing
 	Else
-		IsSameBookOpen = False
+		Set GetSameBookOpen = objBook
 	End If
 
 End Function
@@ -283,111 +330,5 @@ Function GetOfficeApp(progId, newProcess)
 
 	On Error GoTo 0
 	Set GetOfficeApp = objApp
-
-End Function
-
-' アプリケーションのウインドウを表示して前面に表示
-Sub SetAppFocus(objApp)
-
-	' ウィンドウの非表示を解除し、アクティブにする
-	Dim objShell
-	Set objShell = WScript.CreateObject("WScript.Shell")
-	objApp.Visible = True
-	Call objShell.AppActivate(objApp.Caption)
-
-	' ウィンドウが最小化されている時だけ、0.2秒後に復元
-	If objApp.WindowState = -4140 Then
-		WScript.Sleep 200
-		objShell.SendKeys "% r"
-	End If
-End Sub
-
-' 指定されたOfficeアプリケーションが起動済みかチェック
-Function ExistsApp(progId)
-	On Error Resume Next
-	Dim objApp
-	Set objApp = GetObject(, progId)
-	If Err.Number Then
-		ExistsApp = False
-	Else
-		Set objApp = Nothing
-		ExistsApp = True
-	End If
-	On Error GoTo 0
-End Function
-
-' 指定されたファイルをExcelで開く(シェル実行)
-Sub ExcelShellOpen(filePath, readOnly)
-
-	' Excel.Applicationから、実行ファイルパスを取得
-	Dim objApp
-	Set objApp = CreateObject("Excel.Application")
-	Dim path
-	path = objApp.Path
-	Call objApp.Quit()
-	Set objApp = Nothing
-
-	' 空のExcelアプリケーションをシェル機能を利用して起動
-	Dim cmd
-	cmd = """" & path & "\EXCEL.EXE"""
-	Dim objShell
-	Set objShell = WScript.CreateObject("WScript.Shell")
-	Call objShell.Run(cmd)
-
-	' 起動済みのExcelオブジェクトを取得し、ファイルを開く
-	' アドイン起動までしばらく時間がかかることがあるので待機処理追加
-	Dim objApp2
-	Set objApp2 = WaitGetObject("Excel.Application")
-	If objApp2 Is Nothing Then
-		Exit Sub
-	End If
-
-	On Error Resume Next
-	Call objApp2.WorkBooks.Add(filePath)
-	If Err.Number Then
-		MsgBox "エラーが発生しました" & vbCrLf & vbCrLf & Err.Description, , "エラー"
-	End If
-
-	On Error GoTo 0
-End Sub
-
-' GetObjectで指定されたアプリケーションが取得できるまで待機
-Function WaitGetObject(progId)
-
-	On Error Resume Next
-
-	Dim objApp
-	Dim i
-	For i = 0 To 9
-
-		' ２秒待機
-		WScript.Sleep 2000
-
-		' 2秒で起動した場合はそのままアプリケーション参照を返す
-		Set objApp = GetObject(, progId)
-		If Err.Number = 0 Then
-			Set WaitGetObject = objApp
-			Exit Function
-		End If
-
-		' 起動していない場合(エラー429)以外はエラー表示
-		If Err.Number <> 429 Then
-			MsgBox Err.Number & ":" & Err.Description
-			Set WaitGetObject = Nothing
-			Exit Function
-		End If
-
-		Err.Clear
-
-	Next
-
-	' 20秒経過後、さらに待機するか問い合わせる
-	Dim wait_continue
-	wait_continue = MsgBox("アプリケーションが起動しないようです。継続して待機しますか？", vbYesNo + vbSystemModal, "アプリケーション起動待機")
-	If wait_continue = vbYes Then
-		Set WaitGetObject = WaitGetObject(progId)
-	Else
-		Set WaitGetObject = Nothing
-	End If
 
 End Function
