@@ -124,7 +124,7 @@ Function Main(filePath, readOnly, newProcess)
 	Set objFs = WScript.CreateObject("Scripting.FileSystemObject")
 	ext = LCase(objFs.GetExtensionName(filePath))
 
-	If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Then
+	If ext = "xls" Or ext = "xlsx" Or ext = "xlsm" Or ext = "xltx" Or ext = "xltm" Then
 		Main = ExcelOpen(filePath, readOnly, newProcess)
 	ElseIf ext = "doc" Or ext = "docx" Then
 		Main = WordOpen(filePath, readOnly)
