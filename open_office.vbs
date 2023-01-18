@@ -332,3 +332,19 @@ Function GetOfficeApp(progId, newProcess)
 	Set GetOfficeApp = objApp
 
 End Function
+
+' アプリケーションのウインドウを表示して前面に表示
+Sub SetAppFocus(objApp)
+
+	' ウィンドウの非表示を解除し、アクティブにする
+	Dim objShell
+	Set objShell = WScript.CreateObject("WScript.Shell")
+	objApp.Visible = True
+	Call objShell.AppActivate(objApp.Caption)
+
+	' ウィンドウが最小化されている時だけ、0.2秒後に復元
+	If objApp.WindowState = -4140 Then
+		WScript.Sleep 200
+		objShell.SendKeys "% r"
+	End If
+End Sub
